@@ -3,10 +3,11 @@
 import org.apache.spark.{SparkConf, SparkContext}
 import play.api.libs.json.Json
 
+import java.io.{File, PrintWriter}
 import scala.collection.mutable
 
 object SimpleApp {
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val conf = new SparkConf().setAppName("sparkbyexamples.com").setMaster("local[1]")
     val sparkContext = new SparkContext(conf)
     val lines = sparkContext.textFile(args(0))
@@ -72,7 +73,15 @@ object SimpleApp {
     // this is the line containing the whole dictionary
     println(p.sorted.mkString("Array(", ", ", ")"))
 
-    // TODO: write the results to a file that has to be submitted.
+    val outputPath = "/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/output.txt"
+
+    val writer = new PrintWriter(outputPath)
+    try {
+      writer.println(p.sorted.mkString("Array(", ",", ")"))
+    } finally {
+      writer.close()
+    }
+
     sparkContext.stop()
   }
 }
