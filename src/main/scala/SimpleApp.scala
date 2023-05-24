@@ -4,6 +4,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import play.api.libs.json.Json
 
 import java.io.{File, PrintWriter}
+import java.util.stream.Collectors
 import scala.collection.mutable
 
 object SimpleApp {
@@ -11,30 +12,37 @@ object SimpleApp {
     val conf = new SparkConf().setAppName("sparkbyexamples.com").setMaster("local[1]")
     val sparkContext = new SparkContext(conf)
     val lines = sparkContext.textFile(args(0))
-    // here each line is a json doc
+
+    // this contains for each category the number of reviews
     val getAllCat = lines
       .map(line => Json.parse(line))
       .map(line => {
-        val cat = (line \ "category").get.toString()
-        (cat, 1)
+        val category = (line \ "category").get.toString()
+        (category, 1)
       })
       .reduceByKey(_ + _)
 
     val mapWithAllCategories = getAllCat.collectAsMap()
 
     val sumAll = mapWithAllCategories.values.sum
+
     val numAs = lines
       .map(line => Json.parse(line))
       .flatMap(jsonLine => {
         val category = (jsonLine \ "category").get.toString()
-        val delimitersRegex = """[\s\t\d\(\)\[\]\{\}.!?,;:+=\-_"'`~#@&*%€$§\\\/]+"""
+        val delimitersRegex = "[^a-zA-Z]+"
         val sets = (jsonLine \ "reviewText").get.toString().split(delimitersRegex).toSet
         sets
+          // remove one character words
           .filter(word => word.length != 1)
+          // each entry will contain the (word, category), 1 so that we can count the words in the different categories
           .map(word => (word -> category) -> 1)
       })
+      // sum and group by key
       .reduceByKey(_ + _)
+      // here the group is done by word, and not by (word, category) so that we can have for each word all of the sums categories
       .groupBy(f => f._1._1)
+      // here we map the categories
       .map(f => f._1 -> f._2.map(ff => ff._1._2 -> ff._2))
 
     val res = numAs
@@ -63,25 +71,28 @@ object SimpleApp {
         f._1 -> pq.dequeueAll.reverse.toList
       })
 
-    res.foreach(r => {
-      println(s"${r._1}")
-      r._2.foreach(p => print(s"${p._1}:${p._2} "))
-      println()
-    })
+    val stringBuilder = new StringBuilder()
 
     val p = res.map(f => f._2.map(ff => ff._1)).reduce(_ ++ _)
-    // this is the line containing the whole dictionary
-    println(p.sorted.mkString("Array(", ", ", ")"))
+    val result = res.map { case (key, array) =>
+      key -> array.map { case (subKey, value) =>
+        s"$subKey:$value"
+      }.mkString(" ")
+    }
+    val finalString = result.map(r => s"${r._1}\t ${r._2}").collect().mkString("\n")
 
-    val outputPath = "/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/output.txt"
+    stringBuilder.append(finalString)
+
+    stringBuilder.append(p.sorted.mkString("Array(", ", ", ")"))
+
+    val outputPath = "output_rdd.txt"
 
     val writer = new PrintWriter(outputPath)
     try {
-      writer.println(p.sorted.mkString("Array(", ",", ")"))
+      writer.println(stringBuilder.toString())
     } finally {
       writer.close()
     }
-
     sparkContext.stop()
   }
 }
