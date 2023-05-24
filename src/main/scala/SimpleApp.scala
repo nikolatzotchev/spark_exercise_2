@@ -1,5 +1,11 @@
 /* SimpleApp.scala */
 
+import org.apache.spark
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.feature.{ChiSqSelector, ChiSqSelectorModel, CountVectorizer, HashingTF, IDF, IndexToString, RegexTokenizer, StopWordsRemover, StringIndexer, UnivariateFeatureSelector}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import org.apache.spark.{SparkConf, SparkContext}
 import play.api.libs.json.Json
 
@@ -81,6 +87,60 @@ object SimpleApp {
     } finally {
       writer.close()
     }
+
+    val sqlContext = new SQLContext(sparkContext)
+    val df: DataFrame = sqlContext.read.json(args(0))
+
+    val stopWordsRDD = sparkContext.textFile("/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/stopwords.txt")
+    val stopWords: Array[String] = stopWordsRDD.collect()
+
+
+    val labelIndexer = new StringIndexer()
+      .setInputCol("category")
+      .setOutputCol("categoryIndex")
+      .fit(df)
+
+    val tokenizer = new RegexTokenizer()
+      .setPattern("\\W")
+      .setInputCol("reviewText")
+      .setOutputCol("tokens")
+
+    val stopWordsRemover = new StopWordsRemover()
+      .setInputCol("tokens")
+      .setOutputCol("filteredTokens")
+      .setCaseSensitive(false)
+      .setStopWords(stopWords)
+
+    val countVectorizer = new CountVectorizer()
+      .setInputCol("filteredTokens")
+      .setOutputCol("countedTokens")
+
+    val chiSqSelector = new UnivariateFeatureSelector()
+      .setFeatureType("categorical")
+      .setLabelType("categorical")
+      .setFeaturesCol("countedTokens")
+      .setLabelCol("categoryIndex")
+      .setOutputCol("selectedFeatures")
+      .setSelectionMode("numTopFeatures")
+      .setSelectionThreshold(2000)
+
+    val pipeline = new Pipeline()
+      .setStages(Array(labelIndexer, tokenizer, stopWordsRemover, countVectorizer, chiSqSelector))
+
+    val model = pipeline.fit(df)
+
+    val data = model.transform(df)
+
+    val selectedFeatures = data.select("selectedFeatures")
+
+    val x = data.head()
+    println(x)
+
+    data.show()
+
+    /*
+    val selectedTermsFile = "/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/output_ds.txt"
+    sparkContext.parallelize(selectedTerms).saveAsTextFile(selectedTermsFile)*/
 
     sparkContext.stop()
   }
