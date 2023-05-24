@@ -4,6 +4,7 @@ import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LinearSVC, OneVsRest}
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.feature._
+import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.{SparkConf, SparkContext}
 import play.api.libs.json.Json
@@ -22,7 +23,7 @@ object Classification {
     val stopWordsRDD = sparkContext.textFile("/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/stopwords.txt")
     val stopWords: Array[String] = stopWordsRDD.collect()
 
-    val Array(trainData, valData, testData) = df.randomSplit(Array(0.6, 0.2, 0.2), seed = 42)
+    val Array(trainData, testData) = df.randomSplit(Array(0.8, 0.2), seed = 42)
 
     val labelIndexer = new StringIndexer()
       .setInputCol("category")
@@ -72,20 +73,35 @@ object Classification {
     val pipeline = new Pipeline()
       .setStages(Array(labelIndexer, tokenizer, stopWordsRemover, countVectorizer, chiSqSelector, normalizer, ovr))
 
-    val model = pipeline.fit(trainData)
 
-    val predictions = model.transform(valData)
+    val gridSearch = new ParamGridBuilder()
+      .addGrid(lsvm.regParam, Array(1.0, 0.1, 0.001))
+      .addGrid(lsvm.standardization, Array(true, false))
+      .addGrid(lsvm.maxIter, Array(10, 100))
+      .build()
+
+    val evaluator = new MulticlassClassificationEvaluator()
+      .setMetricName("f1")
+      .setPredictionCol("predictions")
+      .setLabelCol("categoryIndex")
+
+    val tv = new TrainValidationSplit()
+      .setEstimator(pipeline)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(gridSearch)
+      .setTrainRatio(0.8)
+
+    //val model = pipeline.fit(trainData)
+
+    val validationModel = tv.fit(trainData)
+
+    val predictions = validationModel.transform(testData)
 
     //val normalizedDf = normalizer.transform(tmp)
 
     //val predictions = ovr.fit(normalizedDf).transform(normalizedDf)
 
     predictions.show()
-
-    val evaluator = new MulticlassClassificationEvaluator()
-      .setMetricName("f1")
-      .setPredictionCol("predictions")
-      .setLabelCol("categoryIndex")
 
     // compute the classification error on test data.
     val accuracy = evaluator.evaluate(predictions)
