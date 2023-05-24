@@ -2,7 +2,7 @@
 
 import org.apache.spark
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.feature.{ChiSqSelector, ChiSqSelectorModel, CountVectorizer, HashingTF, IDF, IndexToString, RegexTokenizer, StopWordsRemover, StringIndexer, UnivariateFeatureSelector}
+import org.apache.spark.ml.feature.{ChiSqSelector, ChiSqSelectorModel, CountVectorizer, CountVectorizerModel, HashingTF, IDF, IndexToString, RegexTokenizer, StopWordsRemover, StringIndexer, UnivariateFeatureSelector, UnivariateFeatureSelectorModel}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SQLContext}
@@ -129,18 +129,14 @@ object SimpleApp {
 
     val model = pipeline.fit(df)
 
-    val data = model.transform(df)
+    val vocab = model.stages(3).asInstanceOf[CountVectorizerModel].vocabulary
 
-    val selectedFeatures = data.select("selectedFeatures")
+    val selectedFeatures = model.stages.last.asInstanceOf[UnivariateFeatureSelectorModel].selectedFeatures
 
-    val x = data.head()
-    println(x)
+    val words = selectedFeatures.map(index => vocab(index))
 
-    data.show()
-
-    /*
     val selectedTermsFile = "/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/output_ds.txt"
-    sparkContext.parallelize(selectedTerms).saveAsTextFile(selectedTermsFile)*/
+    sparkContext.parallelize(words.sorted).saveAsTextFile(selectedTermsFile)
 
     sparkContext.stop()
   }
