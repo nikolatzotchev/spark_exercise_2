@@ -70,6 +70,7 @@ object SimpleApp {
           })
         f._1 -> pq.dequeueAll.reverse.toList
       })
+      .sortByKey()
 
     val stringBuilder = new StringBuilder()
 
