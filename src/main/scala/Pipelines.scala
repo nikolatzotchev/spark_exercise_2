@@ -23,7 +23,7 @@ object Pipelines {
       .fit(df)
 
     val tokenizer = new RegexTokenizer()
-      .setPattern("\\W")
+      .setPattern("[^[a-zA-Z]]")
       .setInputCol("reviewText")
       .setOutputCol("tokens")
 
@@ -51,6 +51,8 @@ object Pipelines {
 
     val model = pipeline.fit(df)
 
+    model.transform(df).show()
+
     val vocab = model.stages(3).asInstanceOf[CountVectorizerModel].vocabulary
 
     val selectedFeatures = model.stages.last.asInstanceOf[UnivariateFeatureSelectorModel].selectedFeatures
@@ -59,8 +61,6 @@ object Pipelines {
 
     val selectedTermsFile = "/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/output_ds.txt"
     sparkContext.parallelize(words.sorted).saveAsTextFile(selectedTermsFile)
-
-    println("aszgfalsbrfgaks dlgas dgnabsl dkgas")
 
     sparkContext.stop()
   }
