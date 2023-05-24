@@ -81,9 +81,9 @@ object SimpleApp {
     }
     val finalString = result.map(r => s"${r._1}\t ${r._2}").collect().mkString("\n")
 
-    stringBuilder.append(finalString)
+    stringBuilder.append(finalString).append("\n")
 
-    stringBuilder.append(p.sorted.mkString("Array(", ", ", ")"))
+    stringBuilder.append(p.sorted.mkString(" "))
 
     val outputPath = "output_rdd.txt"
 
