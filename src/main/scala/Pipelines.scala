@@ -13,7 +13,7 @@ object Pipelines {
     val sqlContext = new SQLContext(sparkContext)
     val df: DataFrame = sqlContext.read.json(args(0))
 
-    val stopWordsRDD = sparkContext.textFile("/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/stopwords.txt")
+    val stopWordsRDD = sparkContext.textFile(args(1))
     val stopWords: Array[String] = stopWordsRDD.collect()
 
 
@@ -69,7 +69,7 @@ object Pipelines {
     val words = selectedFeatures.map(index => vocab(index))
 
     //export the words
-    val selectedTermsFile = "/Users/casparmayrgundter/Documents/SE/SoSe23/DIC/Exercise2/output_ds.txt"
+    val selectedTermsFile = args(2)
     sparkContext.parallelize(words.sorted).saveAsTextFile(selectedTermsFile)
 
     sparkContext.stop()
